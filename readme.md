@@ -48,7 +48,7 @@ The main problems I encountered were:
    - Also in `Package.appxmanifest`, add the service extension child element of `<Package>`:
       <Extensions>
         <desktop6:Extension Category="windows.service" EntryPoint="Windows.FullTrustApplication" Executable="BackgroundService\BackgroundService.exe">
-              <desktop6:Service Name="BackgroundSvc" StartupType="auto" StartAccount="localSystem"/>
+              <desktop6:Service Name="BackgroundService" StartupType="auto" StartAccount="localSystem"/>
         </desktop6:Extension>
       </Extensions>
    - There's also `desktop7:Service` but this causes the service registartion to be skipped on Windows 10 
