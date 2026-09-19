@@ -17,13 +17,23 @@ namespace BackgroundService
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _logger.LogWarning($"WindowsBackgroundService running as PID {Environment.ProcessId} in {(Environment.UserInteractive ? string.Empty : "non-")}interactive environment");
-            while (!stoppingToken.IsCancellationRequested)
-            {
-                string joke = _jokeService.GetJoke();
-                _logger.LogWarning(joke);
+            // Warning level is used deliberately so the messages show up in the Windows Application event log,
+            // which only receives Warning and above by default.
+            _logger.LogWarning("WindowsBackgroundService running as PID {ProcessId} in {Interactivity}interactive environment",
+                Environment.ProcessId, Environment.UserInteractive ? string.Empty : "non-");
 
-                await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
+            using var timer = new PeriodicTimer(TimeSpan.FromMinutes(1));
+            try
+            {
+                do
+                {
+                    _logger.LogWarning("{Joke}", _jokeService.GetJoke());
+                }
+                while (await timer.WaitForNextTickAsync(stoppingToken));
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected on service stop; don't let the host log it as an error.
             }
         }
     }

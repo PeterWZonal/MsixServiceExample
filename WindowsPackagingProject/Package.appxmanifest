@@ -40,18 +40,15 @@
       </uap:VisualElements>
       <Extensions>
         <desktop6:Extension Category="windows.service" EntryPoint="Windows.FullTrustApplication" Executable="BackgroundService\BackgroundService.exe">
-          <desktop6:Service  Name="WindowsBackgroundSvc" StartupType="auto" StartAccount="localSystem">            
-          </desktop6:Service>
+          <desktop6:Service Name="BackgroundService" StartupType="auto" StartAccount="localSystem" />
         </desktop6:Extension>
       </Extensions>
     </Application>
   </Applications>
 
   <Capabilities>
-    <Capability Name="internetClient" />
     <rescap:Capability Name="runFullTrust" />
     <rescap:Capability Name="localSystemServices" />
     <rescap:Capability Name="packagedServices" />
-    <Capability Name="privateNetworkClientServer"/>
   </Capabilities>
 </Package>
