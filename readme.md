@@ -1,4 +1,4 @@
-Demo of a working .Net 6.0 Windows Service deployed with msix.
+Demo of a working .Net 10.0 Windows Service deployed with msix.
 I was having trouble finding working examples and docs of how to do this.
 
 Instructions to build and test locally:
@@ -11,21 +11,21 @@ Instructions to build and test locally:
    - Select/create a signing certificate
  - Publish should succeed
  - Copy published files to the deployment target
-   - WindowsPackagingProject_1.0.1.0_x64.appxsym
-   - WindowsPackagingProject_1.0.1.0_x64.cer
-   - WindowsPackagingProject_1.0.1.0_x64.msixbundle
- - Install .net 6.0 runtime there:
+   - WindowsPackagingProject_1.0.0.0_x64.appxsym
+   - WindowsPackagingProject_1.0.0.0_x64.cer
+   - WindowsPackagingProject_1.0.0.0_x64.msixbundle
+ - Install the .net 10.0 runtime there **before** installing the package (otherwise the service fails its first auto-start and must be started manually).
+   The app is built with `RollForward=Major`, so any newer installed major runtime will also work:
 ```
 $env:DOTNET_CLI_TELEMETRY_OPTOUT="true"
 $env:DOTNET_NOLOGO="true"
 curl.exe https://dot.net/v1/dotnet-install.ps1  -L -o .\dotnet-install.ps1
-.\dotnet-install -Channel LTS -runtime "aspnetcore" -InstallDir "C:\Program Files\dotnet"
-.\dotnet-install -Channel LTS -runtime "windowsdesktop" -InstallDir "C:\Program Files\dotnet"
+powershell -ExecutionPolicy Bypass -File .\dotnet-install.ps1 -Channel 10.0 -Runtime dotnet -InstallDir "C:\Program Files\dotnet"
 ```
  - If using a self signed cert for the Msix package, trust it on the test machine:
-   - Right click WindowsPackagingProject_1.0.1.0_x64.cer -> Install
+   - Right click WindowsPackagingProject_1.0.0.0_x64.cer -> Install
    - Use options: Local Machine / Place in following store: Trusted People
- - Using powershell, install the msix with `Add-AppxPackage .\WindowsPackagingProject_1.0.1.0_x64.msixbundle`
+ - Using powershell, install the msix with `Add-AppxPackage .\WindowsPackagingProject_1.0.0.0_x64.msixbundle`
  - Check the application event log to verify its running
 
 The main problems I encountered were:
