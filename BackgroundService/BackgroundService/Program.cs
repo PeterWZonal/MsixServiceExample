@@ -18,6 +18,8 @@ namespace BackgroundService
                 {
                     services.AddSingleton<JokeService>();
                     services.AddHostedService<WindowsBackgroundService>();
+                    services.AddSingleton<PluginLocator>();
+                    services.AddHostedService<PluginHostService>();
                 })
                 .Build())
             {

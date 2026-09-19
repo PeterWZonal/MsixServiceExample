@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap4="http://schemas.microsoft.com/appx/manifest/uap/windows10/4"
+  xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest"
+  xmlns:rescap6="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities/6"
+  IgnorableNamespaces="uap uap4 mp rescap6">
+
+  <!-- Publisher must match the main package exactly -->
+  <Identity
+    Name="MsixServiceExample.FactModification"
+    Publisher="CN=GithubUser"
+    Version="1.0.0.0" />
+
+  <!-- Not meaningful for a desktop package, but the VS packaging tasks (GenerateAppxPackageRecipe) require either
+       this element or the runFullTrust capability, and a modification package should not declare capabilities. -->
+  <mp:PhoneIdentity PhoneProductId="2f0b7a3e-6c41-4d2a-9d8e-5b1c3a7f9e20" PhonePublisherId="00000000-0000-0000-0000-000000000000" />
+
+  <Properties>
+    <DisplayName>FactModificationPackage</DisplayName>
+    <PublisherDisplayName>Github User</PublisherDisplayName>
+    <Logo>Images\StoreLogo.png</Logo>
+    <rescap6:ModificationPackage>true</rescap6:ModificationPackage>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.19041.0" />
+    <uap4:MainPackageDependency Name="510bbcc0-e8f8-4e41-b0c2-a57a084099f3" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="x-generate"/>
+  </Resources>
+</Package>
