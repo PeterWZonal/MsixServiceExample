@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.3.32929.385
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BackgroundService", "BackgroundService\BackgroundService.csproj", "{5B401EAC-778D-4212-BE0E-C6D86B4D40C4}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BackgroundService", "BackgroundService\BackgroundService\BackgroundService.csproj", "{5B401EAC-778D-4212-BE0E-C6D86B4D40C4}"
 EndProject
-Project("{C7167F0D-BC9F-4E6E-AFE1-012C56B48DB5}") = "WindowsPackagingProject", "WindowsPackagingProject\WindowsPackagingProject.wapproj", "{3B45D44C-04E0-4D61-A877-13AEC4FB19CC}"
+Project("{C7167F0D-BC9F-4E6E-AFE1-012C56B48DB5}") = "WindowsPackagingProject", "BackgroundService\WindowsPackagingProject\WindowsPackagingProject.wapproj", "{3B45D44C-04E0-4D61-A877-13AEC4FB19CC}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{B43E3E3C-6301-48F3-AB2F-211D032566FD}"
 	ProjectSection(SolutionItems) = preProject
