@@ -1,5 +1,17 @@
-Demo of a working .Net 10.0 Windows Service deployed with msix.
+Demo of a working .Net 10.0 Windows Service deployed with msix, plus an msix **modification package** that adds a plugin to it.
 I was having trouble finding working examples and docs of how to do this.
+
+Layout:
+```
+WindowsPackagingProject.sln                       root solution (all projects below)
+BackgroundService\
+  BackgroundService\                              the service (net10.0-windows10.0.19041.0, Microsoft.NET.Sdk.Worker)
+  BackgroundService.Contracts\                    IPeriodicMessageSource - the plugin contract, shipped in the main package
+  WindowsPackagingProject\                        main msix package (service registration, Identity 510bbcc0-...)
+FactModification\
+  FactPlugin\                                     plugin (net10.0 class library) implementing IPeriodicMessageSource
+  FactModificationPackage\                        modification package that ships FactPlugin.dll to BackgroundService\
+```
 
 Instructions to build and test locally:
  - Open in visual studio (I used VS2022)
@@ -11,9 +23,9 @@ Instructions to build and test locally:
    - Select/create a signing certificate
  - Publish should succeed
  - Copy published files to the deployment target
-   - WindowsPackagingProject_1.0.0.0_x64.appxsym
-   - WindowsPackagingProject_1.0.0.0_x64.cer
-   - WindowsPackagingProject_1.0.0.0_x64.msixbundle
+   - WindowsPackagingProject_1.2.0.0_x64.appxsym
+   - WindowsPackagingProject_1.2.0.0_x64.cer
+   - WindowsPackagingProject_1.2.0.0_x64.msixbundle
  - Install the .net 10.0 runtime there **before** installing the package (otherwise the service fails its first auto-start and must be started manually).
    The app is built with `RollForward=Major`, so any newer installed major runtime will also work:
 ```
@@ -23,9 +35,9 @@ curl.exe https://dot.net/v1/dotnet-install.ps1  -L -o .\dotnet-install.ps1
 powershell -ExecutionPolicy Bypass -File .\dotnet-install.ps1 -Channel 10.0 -Runtime dotnet -InstallDir "C:\Program Files\dotnet"
 ```
  - If using a self signed cert for the Msix package, trust it on the test machine:
-   - Right click WindowsPackagingProject_1.0.0.0_x64.cer -> Install
+   - Right click WindowsPackagingProject_1.2.0.0_x64.cer -> Install
    - Use options: Local Machine / Place in following store: Trusted People
- - Using powershell, install the msix with `Add-AppxPackage .\WindowsPackagingProject_1.0.0.0_x64.msixbundle`
+ - Using powershell, install the msix with `Add-AppxPackage .\WindowsPackagingProject_1.2.0.0_x64.msixbundle`
  - Check the application event log to verify its running
 
 The main problems I encountered were:
@@ -54,6 +66,127 @@ The main problems I encountered were:
    - There's also `desktop7:Service` but this causes the service registartion to be skipped on Windows 10 
 
  - I did see some claims that localSystem services aren't supported but it works when I tested it (I assume these caveats were for publishing via Windows Store)
+
+## Modification package (FactModification)
+
+The service logs a joke every 60 s. Installing the `FactModificationPackage` msix on top of it makes the *same* service also log a
+fun fact every 45 s, without changing or reinstalling the main package. It is a plain msix
+[modification package](https://learn.microsoft.com/windows/msix/modification-packages): `rescap6:ModificationPackage` in
+`Properties`, a `uap4:MainPackageDependency` on the main package's identity name, the same `Publisher`, and **no** `Applications`
+or `Capabilities`. Its only payload is `BackgroundService\FactPlugin.dll` (+ `FactPlugin.deps.json`) - the same relative folder
+the service exe lives in inside the main package.
+
+How the plugin gets loaded:
+ - `BackgroundService.Contracts` defines `IPeriodicMessageSource { Name; Interval; GetMessage(); }`. It ships in the main package.
+   `FactPlugin` references it with `Private=false` / `ExcludeAssets=runtime` so the contract dll is *not* copied into the
+   modification package - the plugin binds to the host's copy at runtime.
+ - At startup `PluginLocator` finds every optional/modification package registered against the main package and scans its
+   `BackgroundService\` folder. A dll is treated as a plugin entry point when a sibling `<name>.deps.json` exists (emitted by
+   `EnableDynamicLoading`; plain dependency dlls have none). Everything is logged at Warning level so it lands in the Application
+   event log. Registrations are looked up via `Windows.ApplicationModel.Package.Current.Dependencies` and, because
+   that is empty in a service (see below), via `Windows.Management.Deployment.PackageManager`: find the users that have the
+   main package family registered (`FindUsers`), enumerate their optional packages
+   (`FindPackagesForUserWithPackageTypes(sid, PackageTypes.Optional)`) and keep those whose `AppxManifest.xml` has a
+   `MainPackageDependency` naming the main package.
+ - Each plugin dll is loaded in its own `AssemblyLoadContext` (`PluginLoadContext`, backed by `AssemblyDependencyResolver`) that
+   returns `null` for the contract assembly (and anything else it can't resolve) so those bind to the host's copies and type
+   identity is preserved. Every public, non-abstract `IPeriodicMessageSource` gets its own `PeriodicTimer` loop in
+   `PluginHostService`, logging `[<Name>] <message>`.
+ - Several modification packages can coexist; each is scanned in turn. Plugin entry dlls must have unique file names
+   (a duplicate name is logged and ignored).
+
+Empirical findings (Windows 10 2004 / 19041 x64, service running as LocalSystem):
+ - **The modification package's files are *not* visible through the main package's folder - neither in a subfolder nor in the
+   host exe's own folder.** Tested both ways: with the mod shipping `BackgroundService\Plugins\FactPlugin.dll` the service logged
+   `directory does not exist: ...\<main>\BackgroundService\Plugins`; with it shipping `BackgroundService\FactPlugin.dll` the
+   service logged `Host folder ...\<main>\BackgroundService\ contains 35 dll(s); FactPlugin.dll present: False`, before and after
+   the mod was registered, and `Test-Path <main>\BackgroundService\FactPlugin.dll` on disk is `False`. Msix only merges
+   `VFS\<KnownFolder>` paths (and the registry) at runtime, and only for processes inside the container - a packaged service is
+   neither. The files only exist under the modification package's own `InstalledLocation`
+   (`C:\Program Files\WindowsApps\MsixServiceExample.FactModification_1.1.0.0_x64__1agf9ebjbgtd8\BackgroundService\`), so the
+   host has to resolve the package graph itself. A "flat" layout where the mod mirrors the host's folder is therefore just a
+   convention, not a merge - hence no `Plugins\` subfolder.
+ - `Package.Current` works in the packaged service (it logs the full package name), but `Package.Current.Dependencies` is
+   **empty** even when the modification package is installed. Msix registrations (main *and* optional) are per-user; the service
+   process gets the main package identity from the SCM but runs as LocalSystem, which has no registrations of its own.
+   `Get-AppxPackage` run as the installing user *does* list the modification package under the main package's
+   `Dependencies`. The `PackageManager` enumeration described above finds it:
+   `PackageManager: optional package MsixServiceExample.FactModification_1.1.0.0_x64__1agf9ebjbgtd8 (user S-1-5-21-...) targets us`
+   followed by `Loaded plugin FactPlugin (interval 00:00:45) from ...\BackgroundService\FactPlugin.dll`, and then
+   `[FactPlugin] ...` lines every 45 s interleaved with the jokes every 60 s.
+ - `desktop6:Service StartAccount` only allows `localSystem`, `localService` or `networkService`, so the service cannot run as a
+   dedicated user that also owns the registrations. For deterministic per-system behaviour, perform all package servicing as one
+   designated (non-interactive, admin) account and restrict the `PackageManager` lookup to that account's SID.
+ - The main package must be installed first; installing the modification package alone fails with `0x80073D12`
+   ("A main app package is required to install this optional package"). `Add-AppxPackage main.msixbundle` followed by
+   `Add-AppxPackage mod.msixbundle` works, as does the single-step
+   `Add-AppxPackage -Path main.msixbundle -ExternalPackages @('mod.msixbundle')` (not required, just convenient).
+ - Plugins are discovered at service start only: after adding or removing the modification package run
+   `Restart-Service BackgroundService` (the single-step install above auto-starts the service with the plugin already present).
+ - **Removing the modification package with `Remove-AppxPackage` also removed the main package** on this OS build (the
+   AppXDeployment-Server log shows both in the `removePackageList`, and the service disappeared). The docs say the main app
+   should simply revert, so treat this as OS-build-specific and re-install the main package afterwards if you hit it.
+   With only the main package installed the service starts cleanly, logs `No plugins loaded` and no errors.
+
+Build notes for the modification package project (`FactModificationPackage.wapproj`):
+ - No `ProjectReference`/`EntryPointProjectUniqueName`; the plugin output is pulled in with `Content` items whose `Link`
+   metadata sets the in-package path (`BackgroundService\%(Filename)%(Extension)`). A `ProjectReference` would instead
+   drop the files into a `FactPlugin\` subfolder. A `BeforeTargets="_ConvertItems"` target (and a solution dependency) builds the
+   plugin first.
+ - The DesktopBridge tasks refuse to build a package without an application ("Project must have a reference to an
+   application"); setting the `EntryPointExe` property to any value satisfies them and only produces the same two
+   `Could not find the '/Package/Applications/Application@Executable|EntryPoint'` warnings as the main package.
+ - `GenerateAppxPackageRecipe` demands either `runFullTrust` or an `mp:PhoneIdentity` element; the manifest carries the
+   (inert) `PhoneIdentity` element so that no capability has to be declared.
+ - `BackgroundService.Contracts.csproj` uses `TreatAsLocalProperty="TargetFramework;RuntimeIdentifier"` because the packaging
+   targets forward the service's publish-profile properties as global properties when they walk project references, which
+   otherwise fails with NETSDK1005 for the plain `net10.0` library.
+
+Command line build of everything (from the repo root, x64 only, sideload packages signed with a test cert):
+```
+msbuild WindowsPackagingProject.sln /restore /t:Build /p:Configuration=Release /p:Platform=x64 ^
+  /p:UapAppxPackageBuildMode=SideloadOnly /p:AppxBundle=Always /p:AppxBundlePlatforms=x64 ^
+  /p:AppxPackageDir=<out>\ /p:PackageCertificateKeyFile=<cert.pfx> /p:PackageCertificatePassword=<pw> /p:AppxPackageSigningEnabled=true
+```
+
+### Conclusion: modification packages are a poor fit for extending a packaged service
+
+Everything above works, but every convenience of modification packages assumes the *consuming process runs inside the msix
+container, as the user who installed the package*: the VFS/registry merge, per-user registration, per-user visibility in
+Settings > Apps (the classic Programs and Features never lists msix at all; the only machine-wide view is
+`Get-AppxPackage -AllUsers`). A `LocalSystem` service satisfies none of that, so each step becomes a workaround:
+
+ - files must be located through `PackageManager` rather than appearing next to the host;
+ - registrations are per user, so two servicing accounts can leave two different mod versions registered at once and the host
+   has to arbitrate (filter to a designated servicing SID, and/or pick the highest version per package family);
+ - the service cannot run as that servicing account (`StartAccount` is limited to the three built-in accounts);
+ - removing the mod package took the main package (and the service) with it on this OS build.
+
+Modification packages are clearly designed for marketplace-style add-ons to interactive desktop apps, not for per-system
+extension of a service. For that requirement the alternatives below are simpler; **option 1 is the recommended one** for this
+repo's scenario.
+
+**Option 1 - plugins inside the main package (recommended).** Build one msix per configuration/edition: the host, the contract
+and the plugin projects are referenced together, published once (so shared dependencies are reconciled into the single
+`BackgroundService\` folder - the "flat tree") and packaged by the one `WindowsPackagingProject`. Plugin-specific code is just
+another project reference / publish profile input; a different edition is a different set of references (or a build property
+controlling which are included). Per-system by construction because the `windows.service` registration is machine-wide, no
+runtime package-graph discovery, plugin versioning is the package version, and the whole payload is covered by one signature.
+The cost is that adding a plugin means shipping a new main package version (and stopping the service first, since a running
+service blocks msix updates with `0x80073D02`).
+
+**Option 2 - machine-wide plugin drop folder outside msix.** The host scans e.g. `%ProgramData%\<Vendor>\BackgroundService\Plugins\`
+(the existing `PluginLoadContext` / sibling-`.deps.json` convention works unchanged), and plugins are delivered by whatever
+mechanism suits - MSI, zip, configuration management. Per-system, independently versioned, no msix semantics to fight; but the
+plugin payload is outside the package's integrity/signing, so the host should verify Authenticode on what it loads, and the
+folder ACL must be locked down to admins since the plugins run as `LocalSystem`.
+
+**Option 3 - sidecar services.** Each extension is its own msix with its own packaged service, communicating with the host over
+IPC (named pipes / gRPC). Per-system and independently versioned/updatable, with process isolation; but the heaviest option
+(IPC contract, lifecycle coordination, one service per extension).
+
+The `FactModification` folder is kept in this branch as the record of the experiment; it is not intended to be merged as the
+production approach.
 
 Todo:
 - Get platform agnostic ("any cpu") publish working while staying framework-dependent

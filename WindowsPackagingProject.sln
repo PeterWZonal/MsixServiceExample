@@ -3,9 +3,20 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.3.32929.385
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BackgroundService", "BackgroundService\BackgroundService.csproj", "{5B401EAC-778D-4212-BE0E-C6D86B4D40C4}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BackgroundService", "BackgroundService\BackgroundService\BackgroundService.csproj", "{5B401EAC-778D-4212-BE0E-C6D86B4D40C4}"
 EndProject
-Project("{C7167F0D-BC9F-4E6E-AFE1-012C56B48DB5}") = "WindowsPackagingProject", "WindowsPackagingProject\WindowsPackagingProject.wapproj", "{3B45D44C-04E0-4D61-A877-13AEC4FB19CC}"
+Project("{C7167F0D-BC9F-4E6E-AFE1-012C56B48DB5}") = "WindowsPackagingProject", "BackgroundService\WindowsPackagingProject\WindowsPackagingProject.wapproj", "{3B45D44C-04E0-4D61-A877-13AEC4FB19CC}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BackgroundService.Contracts", "BackgroundService\BackgroundService.Contracts\BackgroundService.Contracts.csproj", "{A1D2E3F4-5B6C-4D7E-8F90-1A2B3C4D5E6F}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "FactModification", "FactModification", "{C0FFEE00-1111-4222-8333-444455556666}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FactPlugin", "FactModification\FactPlugin\FactPlugin.csproj", "{D4E5F6A7-B8C9-4D0E-9F1A-2B3C4D5E6F70}"
+EndProject
+Project("{C7167F0D-BC9F-4E6E-AFE1-012C56B48DB5}") = "FactModificationPackage", "FactModification\FactModificationPackage\FactModificationPackage.wapproj", "{7C2F0D5E-3A9B-4F1E-9C6D-2B8E5A7D4F13}"
+	ProjectSection(ProjectDependencies) = postProject
+		{D4E5F6A7-B8C9-4D0E-9F1A-2B3C4D5E6F70} = {D4E5F6A7-B8C9-4D0E-9F1A-2B3C4D5E6F70}
+	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{B43E3E3C-6301-48F3-AB2F-211D032566FD}"
 	ProjectSection(SolutionItems) = preProject
@@ -40,6 +51,38 @@ Global
 		{3B45D44C-04E0-4D61-A877-13AEC4FB19CC}.Release|x64.ActiveCfg = Release|x64
 		{3B45D44C-04E0-4D61-A877-13AEC4FB19CC}.Release|x64.Build.0 = Release|x64
 		{3B45D44C-04E0-4D61-A877-13AEC4FB19CC}.Release|x64.Deploy.0 = Release|x64
+		{A1D2E3F4-5B6C-4D7E-8F90-1A2B3C4D5E6F}.Debug|ARM64.ActiveCfg = Debug|Any CPU
+		{A1D2E3F4-5B6C-4D7E-8F90-1A2B3C4D5E6F}.Debug|ARM64.Build.0 = Debug|Any CPU
+		{A1D2E3F4-5B6C-4D7E-8F90-1A2B3C4D5E6F}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{A1D2E3F4-5B6C-4D7E-8F90-1A2B3C4D5E6F}.Debug|x64.Build.0 = Debug|Any CPU
+		{A1D2E3F4-5B6C-4D7E-8F90-1A2B3C4D5E6F}.Release|ARM64.ActiveCfg = Release|Any CPU
+		{A1D2E3F4-5B6C-4D7E-8F90-1A2B3C4D5E6F}.Release|ARM64.Build.0 = Release|Any CPU
+		{A1D2E3F4-5B6C-4D7E-8F90-1A2B3C4D5E6F}.Release|x64.ActiveCfg = Release|Any CPU
+		{A1D2E3F4-5B6C-4D7E-8F90-1A2B3C4D5E6F}.Release|x64.Build.0 = Release|Any CPU
+		{D4E5F6A7-B8C9-4D0E-9F1A-2B3C4D5E6F70}.Debug|ARM64.ActiveCfg = Debug|Any CPU
+		{D4E5F6A7-B8C9-4D0E-9F1A-2B3C4D5E6F70}.Debug|ARM64.Build.0 = Debug|Any CPU
+		{D4E5F6A7-B8C9-4D0E-9F1A-2B3C4D5E6F70}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{D4E5F6A7-B8C9-4D0E-9F1A-2B3C4D5E6F70}.Debug|x64.Build.0 = Debug|Any CPU
+		{D4E5F6A7-B8C9-4D0E-9F1A-2B3C4D5E6F70}.Release|ARM64.ActiveCfg = Release|Any CPU
+		{D4E5F6A7-B8C9-4D0E-9F1A-2B3C4D5E6F70}.Release|ARM64.Build.0 = Release|Any CPU
+		{D4E5F6A7-B8C9-4D0E-9F1A-2B3C4D5E6F70}.Release|x64.ActiveCfg = Release|Any CPU
+		{D4E5F6A7-B8C9-4D0E-9F1A-2B3C4D5E6F70}.Release|x64.Build.0 = Release|Any CPU
+		{7C2F0D5E-3A9B-4F1E-9C6D-2B8E5A7D4F13}.Debug|ARM64.ActiveCfg = Debug|ARM64
+		{7C2F0D5E-3A9B-4F1E-9C6D-2B8E5A7D4F13}.Debug|ARM64.Build.0 = Debug|ARM64
+		{7C2F0D5E-3A9B-4F1E-9C6D-2B8E5A7D4F13}.Debug|ARM64.Deploy.0 = Debug|ARM64
+		{7C2F0D5E-3A9B-4F1E-9C6D-2B8E5A7D4F13}.Debug|x64.ActiveCfg = Debug|x64
+		{7C2F0D5E-3A9B-4F1E-9C6D-2B8E5A7D4F13}.Debug|x64.Build.0 = Debug|x64
+		{7C2F0D5E-3A9B-4F1E-9C6D-2B8E5A7D4F13}.Debug|x64.Deploy.0 = Debug|x64
+		{7C2F0D5E-3A9B-4F1E-9C6D-2B8E5A7D4F13}.Release|ARM64.ActiveCfg = Release|ARM64
+		{7C2F0D5E-3A9B-4F1E-9C6D-2B8E5A7D4F13}.Release|ARM64.Build.0 = Release|ARM64
+		{7C2F0D5E-3A9B-4F1E-9C6D-2B8E5A7D4F13}.Release|ARM64.Deploy.0 = Release|ARM64
+		{7C2F0D5E-3A9B-4F1E-9C6D-2B8E5A7D4F13}.Release|x64.ActiveCfg = Release|x64
+		{7C2F0D5E-3A9B-4F1E-9C6D-2B8E5A7D4F13}.Release|x64.Build.0 = Release|x64
+		{7C2F0D5E-3A9B-4F1E-9C6D-2B8E5A7D4F13}.Release|x64.Deploy.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{D4E5F6A7-B8C9-4D0E-9F1A-2B3C4D5E6F70} = {C0FFEE00-1111-4222-8333-444455556666}
+		{7C2F0D5E-3A9B-4F1E-9C6D-2B8E5A7D4F13} = {C0FFEE00-1111-4222-8333-444455556666}
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

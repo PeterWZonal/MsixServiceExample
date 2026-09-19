@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk" TreatAsLocalProperty="TargetFramework;RuntimeIdentifier">
+
+  <!-- TreatAsLocalProperty: the packaging project's publish step forwards the service's TargetFramework / RuntimeIdentifier
+       as global properties when it walks project references; this library must keep its own plain net10.0 target. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RuntimeIdentifier></RuntimeIdentifier>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>
