@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace BackgroundService
 {
@@ -8,15 +6,14 @@ namespace BackgroundService
     {
         public string GetJoke()
         {
-            Joke joke = _jokes.ElementAt(                
-                new Random().Next(_jokes.Count));
+            Joke joke = _jokes[Random.Shared.Next(_jokes.Length)];
 
             return $"{joke.Setup}{Environment.NewLine}{joke.Punchline}";
         }
 
         // Programming jokes borrowed from:
         // https://github.com/eklavyadev/karljoke/blob/main/source/jokes.json
-        readonly HashSet<Joke> _jokes = new()
+        private readonly Joke[] _jokes =
         {
             new Joke("What's the best thing about a Boolean?", "Even if you're wrong, you're only off by a bit."),
             new Joke("What's the object-oriented way to become wealthy?", "Inheritance"),

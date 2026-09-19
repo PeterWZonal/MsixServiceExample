@@ -48,10 +48,8 @@
   </Applications>
 
   <Capabilities>
-    <Capability Name="internetClient" />
     <rescap:Capability Name="runFullTrust" />
     <rescap:Capability Name="localSystemServices" />
     <rescap:Capability Name="packagedServices" />
-    <Capability Name="privateNetworkClientServer"/>
   </Capabilities>
 </Package>
