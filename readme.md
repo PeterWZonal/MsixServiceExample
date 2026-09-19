@@ -149,6 +149,45 @@ msbuild WindowsPackagingProject.sln /restore /t:Build /p:Configuration=Release /
   /p:AppxPackageDir=<out>\ /p:PackageCertificateKeyFile=<cert.pfx> /p:PackageCertificatePassword=<pw> /p:AppxPackageSigningEnabled=true
 ```
 
+### Conclusion: modification packages are a poor fit for extending a packaged service
+
+Everything above works, but every convenience of modification packages assumes the *consuming process runs inside the msix
+container, as the user who installed the package*: the VFS/registry merge, per-user registration, per-user visibility in
+Settings > Apps (the classic Programs and Features never lists msix at all; the only machine-wide view is
+`Get-AppxPackage -AllUsers`). A `LocalSystem` service satisfies none of that, so each step becomes a workaround:
+
+ - files must be located through `PackageManager` rather than appearing next to the host;
+ - registrations are per user, so two servicing accounts can leave two different mod versions registered at once and the host
+   has to arbitrate (filter to a designated servicing SID, and/or pick the highest version per package family);
+ - the service cannot run as that servicing account (`StartAccount` is limited to the three built-in accounts);
+ - removing the mod package took the main package (and the service) with it on this OS build.
+
+Modification packages are clearly designed for marketplace-style add-ons to interactive desktop apps, not for per-system
+extension of a service. For that requirement the alternatives below are simpler; **option 1 is the recommended one** for this
+repo's scenario.
+
+**Option 1 - plugins inside the main package (recommended).** Build one msix per configuration/edition: the host, the contract
+and the plugin projects are referenced together, published once (so shared dependencies are reconciled into the single
+`BackgroundService\` folder - the "flat tree") and packaged by the one `WindowsPackagingProject`. Plugin-specific code is just
+another project reference / publish profile input; a different edition is a different set of references (or a build property
+controlling which are included). Per-system by construction because the `windows.service` registration is machine-wide, no
+runtime package-graph discovery, plugin versioning is the package version, and the whole payload is covered by one signature.
+The cost is that adding a plugin means shipping a new main package version (and stopping the service first, since a running
+service blocks msix updates with `0x80073D02`).
+
+**Option 2 - machine-wide plugin drop folder outside msix.** The host scans e.g. `%ProgramData%\<Vendor>\BackgroundService\Plugins\`
+(the existing `PluginLoadContext` / sibling-`.deps.json` convention works unchanged), and plugins are delivered by whatever
+mechanism suits - MSI, zip, configuration management. Per-system, independently versioned, no msix semantics to fight; but the
+plugin payload is outside the package's integrity/signing, so the host should verify Authenticode on what it loads, and the
+folder ACL must be locked down to admins since the plugins run as `LocalSystem`.
+
+**Option 3 - sidecar services.** Each extension is its own msix with its own packaged service, communicating with the host over
+IPC (named pipes / gRPC). Per-system and independently versioned/updatable, with process isolation; but the heaviest option
+(IPC contract, lifecycle coordination, one service per extension).
+
+The `FactModification` folder is kept in this branch as the record of the experiment; it is not intended to be merged as the
+production approach.
+
 Todo:
 - Get platform agnostic ("any cpu") publish working while staying framework-dependent
  - Add precondition that dotnet runtime is installed 
