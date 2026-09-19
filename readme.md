@@ -10,7 +10,7 @@ BackgroundService\
   WindowsPackagingProject\                        main msix package (service registration, Identity 510bbcc0-...)
 FactModification\
   FactPlugin\                                     plugin (net10.0 class library) implementing IPeriodicMessageSource
-  FactModificationPackage\                        modification package that ships FactPlugin.dll to BackgroundService\Plugins\
+  FactModificationPackage\                        modification package that ships FactPlugin.dll to BackgroundService\
 ```
 
 Instructions to build and test locally:
@@ -23,9 +23,9 @@ Instructions to build and test locally:
    - Select/create a signing certificate
  - Publish should succeed
  - Copy published files to the deployment target
-   - WindowsPackagingProject_1.1.0.0_x64.appxsym
-   - WindowsPackagingProject_1.1.0.0_x64.cer
-   - WindowsPackagingProject_1.1.0.0_x64.msixbundle
+   - WindowsPackagingProject_1.2.0.0_x64.appxsym
+   - WindowsPackagingProject_1.2.0.0_x64.cer
+   - WindowsPackagingProject_1.2.0.0_x64.msixbundle
  - Install the .net 10.0 runtime there **before** installing the package (otherwise the service fails its first auto-start and must be started manually).
    The app is built with `RollForward=Major`, so any newer installed major runtime will also work:
 ```
@@ -35,9 +35,9 @@ curl.exe https://dot.net/v1/dotnet-install.ps1  -L -o .\dotnet-install.ps1
 powershell -ExecutionPolicy Bypass -File .\dotnet-install.ps1 -Channel 10.0 -Runtime dotnet -InstallDir "C:\Program Files\dotnet"
 ```
  - If using a self signed cert for the Msix package, trust it on the test machine:
-   - Right click WindowsPackagingProject_1.1.0.0_x64.cer -> Install
+   - Right click WindowsPackagingProject_1.2.0.0_x64.cer -> Install
    - Use options: Local Machine / Place in following store: Trusted People
- - Using powershell, install the msix with `Add-AppxPackage .\WindowsPackagingProject_1.1.0.0_x64.msixbundle`
+ - Using powershell, install the msix with `Add-AppxPackage .\WindowsPackagingProject_1.2.0.0_x64.msixbundle`
  - Check the application event log to verify its running
 
 The main problems I encountered were:
@@ -73,39 +73,50 @@ The service logs a joke every 60 s. Installing the `FactModificationPackage` msi
 fun fact every 45 s, without changing or reinstalling the main package. It is a plain msix
 [modification package](https://learn.microsoft.com/windows/msix/modification-packages): `rescap6:ModificationPackage` in
 `Properties`, a `uap4:MainPackageDependency` on the main package's identity name, the same `Publisher`, and **no** `Applications`
-or `Capabilities`. Its only payload is `BackgroundService\Plugins\FactPlugin.dll` (+ `.deps.json`), mirroring the folder the
-service exe lives in inside the main package.
+or `Capabilities`. Its only payload is `BackgroundService\FactPlugin.dll` (+ `FactPlugin.deps.json`) - the same relative folder
+the service exe lives in inside the main package.
 
 How the plugin gets loaded:
  - `BackgroundService.Contracts` defines `IPeriodicMessageSource { Name; Interval; GetMessage(); }`. It ships in the main package.
    `FactPlugin` references it with `Private=false` / `ExcludeAssets=runtime` so the contract dll is *not* copied into the
    modification package - the plugin binds to the host's copy at runtime.
- - At startup `PluginLocator` looks for `*.dll` in two places and logs (Warning level, so it lands in the Application event log)
-   what it finds in each:
-   1. `<exe folder>\Plugins\` - the "merged view" of the main package folder.
-   2. `<optional package InstalledLocation>\BackgroundService\Plugins\` for every optional/modification package registered
-      against the main package. Registrations are found via `Windows.ApplicationModel.Package.Current.Dependencies` and, because
-      that is empty in a service (see below), via `Windows.Management.Deployment.PackageManager`: find the users that have the
-      main package family registered (`FindUsers`), enumerate their optional packages
-      (`FindPackagesForUserWithPackageTypes(sid, PackageTypes.Optional)`) and keep those whose `AppxManifest.xml` has a
-      `MainPackageDependency` naming the main package.
+ - At startup `PluginLocator` finds every optional/modification package registered against the main package and scans its
+   `BackgroundService\` folder. A dll is treated as a plugin entry point when a sibling `<name>.deps.json` exists (emitted by
+   `EnableDynamicLoading`; plain dependency dlls have none). Everything is logged at Warning level so it lands in the Application
+   event log. Registrations are looked up via `Windows.ApplicationModel.Package.Current.Dependencies` and, because
+   that is empty in a service (see below), via `Windows.Management.Deployment.PackageManager`: find the users that have the
+   main package family registered (`FindUsers`), enumerate their optional packages
+   (`FindPackagesForUserWithPackageTypes(sid, PackageTypes.Optional)`) and keep those whose `AppxManifest.xml` has a
+   `MainPackageDependency` naming the main package.
  - Each plugin dll is loaded in its own `AssemblyLoadContext` (`PluginLoadContext`, backed by `AssemblyDependencyResolver`) that
-   returns `null` for the contract assembly so type identity is preserved. Every public, non-abstract `IPeriodicMessageSource`
-   gets its own `PeriodicTimer` loop in `PluginHostService`, logging `[<Name>] <message>`.
+   returns `null` for the contract assembly (and anything else it can't resolve) so those bind to the host's copies and type
+   identity is preserved. Every public, non-abstract `IPeriodicMessageSource` gets its own `PeriodicTimer` loop in
+   `PluginHostService`, logging `[<Name>] <message>`.
+ - Several modification packages can coexist; each is scanned in turn. Plugin entry dlls must have unique file names
+   (a duplicate name is logged and ignored).
 
 Empirical findings (Windows 10 2004 / 19041 x64, service running as LocalSystem):
- - **The modification package's files are *not* visible through the main package's folder.** The service logs
-   `Plugin discovery (local): directory does not exist: C:\Program Files\WindowsApps\510bbcc0-..._1.1.0.0_x64__1agf9ebjbgtd8\BackgroundService\Plugins`
-   both before and after the modification package is installed. Files only exist under the modification package's own
-   `InstalledLocation` (`C:\Program Files\WindowsApps\MsixServiceExample.FactModification_1.0.0.0_x64__1agf9ebjbgtd8\BackgroundService\Plugins\`),
-   so the host has to resolve the package graph itself.
+ - **The modification package's files are *not* visible through the main package's folder - neither in a subfolder nor in the
+   host exe's own folder.** Tested both ways: with the mod shipping `BackgroundService\Plugins\FactPlugin.dll` the service logged
+   `directory does not exist: ...\<main>\BackgroundService\Plugins`; with it shipping `BackgroundService\FactPlugin.dll` the
+   service logged `Host folder ...\<main>\BackgroundService\ contains 35 dll(s); FactPlugin.dll present: False`, before and after
+   the mod was registered, and `Test-Path <main>\BackgroundService\FactPlugin.dll` on disk is `False`. Msix only merges
+   `VFS\<KnownFolder>` paths (and the registry) at runtime, and only for processes inside the container - a packaged service is
+   neither. The files only exist under the modification package's own `InstalledLocation`
+   (`C:\Program Files\WindowsApps\MsixServiceExample.FactModification_1.1.0.0_x64__1agf9ebjbgtd8\BackgroundService\`), so the
+   host has to resolve the package graph itself. A "flat" layout where the mod mirrors the host's folder is therefore just a
+   convention, not a merge - hence no `Plugins\` subfolder.
  - `Package.Current` works in the packaged service (it logs the full package name), but `Package.Current.Dependencies` is
-   **empty** even when the modification package is installed: optional package registrations are per-user and the service runs
-   as LocalSystem. `Get-AppxPackage` run as the installing user *does* list the modification package under the main package's
+   **empty** even when the modification package is installed. Msix registrations (main *and* optional) are per-user; the service
+   process gets the main package identity from the SCM but runs as LocalSystem, which has no registrations of its own.
+   `Get-AppxPackage` run as the installing user *does* list the modification package under the main package's
    `Dependencies`. The `PackageManager` enumeration described above finds it:
-   `PackageManager: optional package MsixServiceExample.FactModification_1.0.0.0_x64__1agf9ebjbgtd8 (user S-1-5-21-...) targets us`
-   followed by `Loaded plugin FactPlugin (interval 00:00:45) from ...\BackgroundService\Plugins\FactPlugin.dll`, and then
+   `PackageManager: optional package MsixServiceExample.FactModification_1.1.0.0_x64__1agf9ebjbgtd8 (user S-1-5-21-...) targets us`
+   followed by `Loaded plugin FactPlugin (interval 00:00:45) from ...\BackgroundService\FactPlugin.dll`, and then
    `[FactPlugin] ...` lines every 45 s interleaved with the jokes every 60 s.
+ - `desktop6:Service StartAccount` only allows `localSystem`, `localService` or `networkService`, so the service cannot run as a
+   dedicated user that also owns the registrations. For deterministic per-system behaviour, perform all package servicing as one
+   designated (non-interactive, admin) account and restrict the `PackageManager` lookup to that account's SID.
  - The main package must be installed first; installing the modification package alone fails with `0x80073D12`
    ("A main app package is required to install this optional package"). `Add-AppxPackage main.msixbundle` followed by
    `Add-AppxPackage mod.msixbundle` works, as does the single-step
@@ -119,7 +130,7 @@ Empirical findings (Windows 10 2004 / 19041 x64, service running as LocalSystem)
 
 Build notes for the modification package project (`FactModificationPackage.wapproj`):
  - No `ProjectReference`/`EntryPointProjectUniqueName`; the plugin output is pulled in with `Content` items whose `Link`
-   metadata sets the in-package path (`BackgroundService\Plugins\%(Filename)%(Extension)`). A `ProjectReference` would instead
+   metadata sets the in-package path (`BackgroundService\%(Filename)%(Extension)`). A `ProjectReference` would instead
    drop the files into a `FactPlugin\` subfolder. A `BeforeTargets="_ConvertItems"` target (and a solution dependency) builds the
    plugin first.
  - The DesktopBridge tasks refuse to build a package without an application ("Project must have a reference to an

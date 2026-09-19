@@ -44,7 +44,7 @@
     <!-- A modification package has no application, but the DesktopBridge tasks insist on an entry point
          (otherwise: "Project must have a reference to an application"). The value is only used for
          manifest token replacement, which this manifest doesn't use. -->
-    <EntryPointExe>BackgroundService\Plugins\FactPlugin.dll</EntryPointExe>
+    <EntryPointExe>BackgroundService\FactPlugin.dll</EntryPointExe>
     <!-- The plugin is AnyCPU managed code, so the same output is packaged for every platform -->
     <FactPluginProject>..\FactPlugin\FactPlugin.csproj</FactPluginProject>
     <FactPluginOutputDir>..\FactPlugin\bin\$(Configuration)\net10.0\</FactPluginOutputDir>
@@ -64,13 +64,14 @@
     <Content Include="Images\Wide310x150Logo.scale-200.png" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Link places the plugin at BackgroundService\Plugins\ inside the package, mirroring the main package's exe folder.
-         (A ProjectReference would instead put the files under a FactPlugin\ subfolder.) -->
+    <!-- Link places the plugin in BackgroundService\ inside the package - the same relative folder the host exe lives in.
+         Windows never merges these files into the main package's folder; the host scans this folder in each
+         modification package via the package graph. (A ProjectReference would instead put the files under FactPlugin\.) -->
     <Content Include="$(FactPluginOutputDir)FactPlugin.dll">
-      <Link>BackgroundService\Plugins\%(Filename)%(Extension)</Link>
+      <Link>BackgroundService\%(Filename)%(Extension)</Link>
     </Content>
     <Content Include="$(FactPluginOutputDir)FactPlugin.deps.json">
-      <Link>BackgroundService\Plugins\%(Filename)%(Extension)</Link>
+      <Link>BackgroundService\%(Filename)%(Extension)</Link>
     </Content>
   </ItemGroup>
   <Import Project="$(WapProjPath)\Microsoft.DesktopBridge.targets" />

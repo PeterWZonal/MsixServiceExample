@@ -10,15 +10,14 @@ using Windows.Management.Deployment;
 namespace BackgroundService
 {
     /// <summary>
-    /// Finds plugin DLLs in two places and logs what each yields, so that the behaviour of modification
-    /// packages can be observed empirically from the event log:
-    ///  (a) the local <c>Plugins\</c> folder next to the service exe (would only contain something if Windows
-    ///      merged the modification package into the main package's folder - it does not for a service), and
-    ///  (b) <c>BackgroundService\Plugins\</c> inside every optional / modification package that targets this package.
+    /// Finds plugin entry assemblies shipped by modification packages. A modification package's files are never
+    /// merged into the main package's folder (verified empirically for a packaged service), so each targeting
+    /// optional package's own <c>BackgroundService\</c> folder - the same relative path the host exe lives at - is
+    /// scanned instead. A DLL is treated as a plugin entry point when a sibling <c>&lt;name&gt;.deps.json</c> exists
+    /// (emitted by <c>EnableDynamicLoading</c>); plain dependency DLLs have none.
     /// </summary>
     public sealed class PluginLocator
     {
-        private const string PluginsFolderName = "Plugins";
         private const string ServiceFolderName = "BackgroundService";
 
         private readonly ILogger<PluginLocator> _logger;
@@ -29,28 +28,27 @@ namespace BackgroundService
         {
             var results = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-            string localPlugins = Path.Combine(AppContext.BaseDirectory, PluginsFolderName);
-            AddFrom("local", localPlugins, results);
-
             foreach (string dependencyRoot in GetOptionalPackageRoots())
             {
-                AddFrom("package graph", Path.Combine(dependencyRoot, ServiceFolderName, PluginsFolderName), results);
+                AddFrom(Path.Combine(dependencyRoot, ServiceFolderName), results);
             }
 
             return results.Values.ToList();
         }
 
-        private void AddFrom(string source, string directory, Dictionary<string, string> results)
+        private void AddFrom(string directory, Dictionary<string, string> results)
         {
             if (!Directory.Exists(directory))
             {
-                _logger.LogWarning("Plugin discovery ({Source}): directory does not exist: {Directory}", source, directory);
+                _logger.LogWarning("Plugin discovery: directory does not exist: {Directory}", directory);
                 return;
             }
 
-            string[] files = Directory.GetFiles(directory, "*.dll", SearchOption.TopDirectoryOnly);
-            _logger.LogWarning("Plugin discovery ({Source}): {Count} dll(s) in {Directory}: {Files}",
-                source, files.Length, directory, string.Join(", ", files.Select(Path.GetFileName)));
+            string[] files = Directory.GetFiles(directory, "*.dll", SearchOption.TopDirectoryOnly)
+                .Where(f => File.Exists(Path.ChangeExtension(f, ".deps.json")))
+                .ToArray();
+            _logger.LogWarning("Plugin discovery: {Count} plugin entry dll(s) in {Directory}: {Files}",
+                files.Length, directory, string.Join(", ", files.Select(Path.GetFileName)));
 
             foreach (string file in files)
             {
@@ -60,7 +58,7 @@ namespace BackgroundService
                     continue;
                 }
 
-                _logger.LogWarning("Plugin discovery ({Source}): {File} ignored, already found at {Existing}", source, file, results[name]);
+                _logger.LogWarning("Plugin discovery: {File} ignored, already found at {Existing}", file, results[name]);
             }
         }
 
